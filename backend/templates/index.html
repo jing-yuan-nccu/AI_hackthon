@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 语音助手</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- 内联基础样式，确保即使主CSS文件未加载也能看起来不错 -->
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; background: #f5f7fa; padding: 16px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 16px; border-radius: 12px; }
+        header { text-align: center; margin-bottom: 20px; }
+        h1 { margin: 10px 0; }
+        .subtitle { color: #666; margin-bottom: 15px; }
+        .header-actions { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .header-button { width: 40px; height: 40px; border-radius: 8px; background: #f5f5f5; border: none; cursor: pointer; }
+        .settings-panel { border: 1px solid #eee; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+        .settings-title { font-size: 18px; margin-bottom: 15px; }
+        .settings-group { margin-bottom: 15px; }
+        .settings-label { display: block; margin-bottom: 5px; color: #666; }
+        .volume-control, .voice-selector { width: 100%; padding: 8px; }
+        .record-container { text-align: center; margin: 20px 0; }
+        .record-button { width: 60px; height: 60px; border-radius: 50%; background: #1a73e8; color: white; border: none; }
+        .status { text-align: center; margin: 15px 0; color: #666; }
+        .text-input { display: flex; margin: 15px 0; }
+        #text-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; }
+        .send-button { width: 44px; height: 44px; border-radius: 22px; background: #1a73e8; color: white; border: none; margin-left: 8px; }
+        .chat-container { padding: 10px; background: #f9f9f9; border-radius: 10px; margin-bottom: 15px; min-height: 200px; }
+        footer { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-robot" style="font-size: 32px; color: #1a73e8;"></i>
+            </div>
+            <h1>AI 语音助手</h1>
+            <p class="subtitle">使用语音与 AI 对话</p>
+            
+            <div class="header-actions">
+                <button id="settings-button" class="header-button" title="设置">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button id="clear-chat" class="header-button" title="清除聊天">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                <button id="theme-toggle" class="header-button" title="切换主题">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </header>
+
+        <div id="settings-panel" class="settings-panel" style="display: none;">
+            <h3 class="settings-title">设置</h3>
+            
+            <div class="settings-group">
+                <label class="settings-label" for="volume-control">音量</label>
+                <input type="range" id="volume-control" class="volume-control" min="0" max="100" value="80">
+            </div>
+            
+            <div class="settings-group">
+                <label class="settings-label" for="voice-selector">语音选择</label>
+                <select id="voice-selector" class="voice-selector">
+                    <option value="zh-CN-XiaoxiaoNeural">小小 (女声)</option>
+                    <option value="zh-CN-YunxiNeural">云溪 (男声)</option>
+                    <option value="zh-CN-XiaoyiNeural">小怡 (女声)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="chat-container" id="chat-messages">
+            <!-- 对话内容会动态加入这里 -->
+        </div>
+
+        <div class="status" id="status">准备就绪</div>
+
+        <div class="record-container">
+            <button id="record-button" class="record-button">
+                <i class="fas fa-microphone"></i>
+            </button>
+        </div>
+        
+        <div class="text-input">
+            <input type="text" id="text-input" placeholder="输入消息或按麦克风语音输入...">
+            <button id="send-button" class="send-button">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+
+        <footer>
+            <div>由 AWS 服务提供支持</div>
+            <div id="connection-status" class="connected">已连接</div>
+        </footer>
+    </div>
+
+    <!-- 音频播放器 (隐藏) -->
+    <audio id="audio-player" controls style="display: none;"></audio>
+
+    <!-- 添加录音指示器 (原HTML中缺失) -->
+    <div id="recording-indicator" class="recording-indicator" style="display: none;"></div>
+
+    <!-- JavaScript 文件 -->
+    <script src="/static/js/audioRecorder.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/app.js"></script>
+    
+    <!-- 内联基础JS，确保页面在主JS未加载时也有基本功能 -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 设置面板切换
+        const settingsButton = document.getElementById('settings-button');
+        const settingsPanel = document.getElementById('settings-panel');
+        
+        if (settingsButton && settingsPanel) {
+            settingsButton.addEventListener('click', function() {
+                settingsPanel.style.display = settingsPanel.style.display === 'none' ? 'block' : 'none';
+            });
+        }
+        
+        // 主题切换基础功能
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = themeToggle.querySelector('i');
+        
+        // 从localStorage获取保存的主题
+        const savedTheme = localStorage.getItem('voiceAssistantTheme') || 'light';
+        
+        // 应用保存的主题
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+            themeIcon.classList.replace('fa-moon', 'fa-sun');
+        }
+        
+        if (themeToggle) {
+            themeToggle.addEventListener('click', function() {
+                // 切换暗色主题
+                document.body.classList.toggle('dark-theme');
+                
+                // 切换图标
+                const isDarkTheme = document.body.classList.contains('dark-theme');
+                if (isDarkTheme) {
+                    themeIcon.classList.replace('fa-moon', 'fa-sun');
+                } else {
+                    themeIcon.classList.replace('fa-sun', 'fa-moon');
+                }
+                
+                // 保存主题设置
+                localStorage.setItem('voiceAssistantTheme', isDarkTheme ? 'dark' : 'light');
+                
+                // 调试信息
+                console.log('Theme changed:', isDarkTheme ? 'dark' : 'light');
+            });
+        }
+    });
+    </script>
+    <script>
+        // 调试主题切换功能
+        document.addEventListener('DOMContentLoaded', function() {
+          console.log('Debug script loaded');
+          
+          const themeToggle = document.getElementById('theme-toggle');
+          if (!themeToggle) {
+            console.error('Theme toggle button not found!');
+            return;
+          }
+          
+          console.log('Theme toggle button found:', themeToggle);
+          
+          // 测试点击事件
+          themeToggle.addEventListener('click', function() {
+            console.log('Theme toggle clicked directly from debug script');
+            
+            // 强制切换主题
+            document.body.classList.toggle('dark-theme');
+            
+            // 获取图标并切换
+            const icon = this.querySelector('i');
+            if (icon) {
+              console.log('Icon found:', icon);
+              if (document.body.classList.contains('dark-theme')) {
+                icon.className = 'fas fa-sun';
+              } else {
+                icon.className = 'fas fa-moon';
+              }
+            } else {
+              console.error('Icon not found in theme toggle button');
+            }
+            
+            // 保存当前主题
+            const isDark = document.body.classList.contains('dark-theme');
+            localStorage.setItem('voiceAssistantTheme', isDark ? 'dark' : 'light');
+            console.log('Theme set to:', isDark ? 'dark' : 'light');
+          });
+        });
+      </script>
+</body>
+</html>

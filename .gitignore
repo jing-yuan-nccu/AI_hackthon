@@ -1,0 +1,10 @@
+# 环境变量文件
+backend/.env
+# AWS本地凭证
+.aws/credentials
+# Python虚拟环境
+backend/.venv/
+# Node modules
+frontend/node_modules/
+# IDE & OS 临时文件
+*.pyc __pycache__/ .DS_Store
